@@ -1,87 +1,80 @@
-import pygame as pg
-import random as rd
-import sys
+import turtle
+import time
+import random
 
-pg.init()
-WIDTH, HEIGHT = 600, 400
-GRID_SIZE = 20
-FPS = 10  # Controlling game speed
-WHITE = (255, 255, 255)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
-BLACK = (0, 0, 0)
-screen = pg.display.set_mode((WIDTH, HEIGHT))
-pg.display.set_caption("Snake Game")
-clock = pg.time.Clock()
-font = pg.font.Font(None, 36)
+# 1. Setup Graphics & Coordinate System
+screen = turtle.Screen()
+screen.title("Snake Graphics Demo")
+screen.bgcolor("black")
+screen.setup(width=600, height=600)
+screen.tracer(0) # Disable auto-updates for manual frame control
 
+# 2. Entity Creation
+head = turtle.Turtle()
+head.shape("square")
+head.color("white")
+head.penup()
+head.goto(0, 0)
+head.direction = "Stop"
 
-def main():
-    snake = [(100, 100), (80, 100), (60, 100)]
-    direction = (GRID_SIZE, 0)
-    food = (rd.randrange(0, WIDTH, GRID_SIZE), rd.randrange(0, HEIGHT, GRID_SIZE))
-    # ensure food does not spawn on the snake
-    while food in snake:
-        food = (rd.randrange(0, WIDTH, GRID_SIZE), rd.randrange(0, HEIGHT, GRID_SIZE))
-    score = 0
+food = turtle.Turtle()
+food.shape("circle")
+food.color("red")
+food.penup()
+food.goto(0, 100)
 
-    running = True
-    while running:
-        for event in pg.event.get():
-            if event.type == pg.QUIT:
-                running = False
-            elif event.type == pg.KEYDOWN:
-                if event.key == pg.K_UP and direction != (0, GRID_SIZE):
-                    direction = (0, -GRID_SIZE)
-                elif event.key == pg.K_DOWN and direction != (0, -GRID_SIZE):
-                    direction = (0, GRID_SIZE)
-                elif event.key == pg.K_LEFT and direction != (GRID_SIZE, 0):
-                    direction = (-GRID_SIZE, 0)
-                elif event.key == pg.K_RIGHT and direction != (-GRID_SIZE, 0):
-                    direction = (GRID_SIZE, 0)
+segments = [] # List to manage snake body data structure
 
-        # move snake
-        new_head = (snake[0][0] + direction[0], snake[0][1] + direction[1])
-        # collision with walls or self
-        if (
-            new_head[0] < 0
-            or new_head[0] >= WIDTH
-            or new_head[1] < 0
-            or new_head[1] >= HEIGHT
-            or new_head in snake
-        ):
-            running = False
-            continue
+# 3. Input Handling (Event Callbacks)
+def go_up():
+    if head.direction != "down": head.direction = "up"
+def go_down():
+    if head.direction != "up": head.direction = "down"
+def go_left():
+    if head.direction != "right": head.direction = "left"
+def go_right():
+    if head.direction != "left": head.direction = "right"
 
-        snake.insert(0, new_head)
+screen.listen()
+screen.onkey(go_up, "Up")
+screen.onkey(go_down, "Down")
+screen.onkey(go_left, "Left")
+screen.onkey(go_right, "Right")
 
-        # eating food logic
-        if new_head == food:
-            score += 1
-            food = (rd.randrange(0, WIDTH, GRID_SIZE), rd.randrange(0, HEIGHT, GRID_SIZE))
-            while food in snake:
-                food = (rd.randrange(0, WIDTH, GRID_SIZE), rd.randrange(0, HEIGHT, GRID_SIZE))
-        else:
-            snake.pop()
+# 4. Movement Logic (Coordinate Updating)
+def move():
+    if head.direction == "up": head.sety(head.ycor() + 20)
+    if head.direction == "down": head.sety(head.ycor() - 20)
+    if head.direction == "left": head.setx(head.xcor() - 20)
+    if head.direction == "right": head.setx(head.xcor() + 20)
 
-        # draw
-        screen.fill(BLACK)
-        for segment in snake:
-            pg.draw.rect(screen, GREEN, (segment[0], segment[1], GRID_SIZE - 1, GRID_SIZE - 1))
-        pg.draw.rect(screen, RED, (food[0], food[1], GRID_SIZE - 1, GRID_SIZE - 1))
+# 5. Main Game Loop (Rendering Pipeline)
+while True:
+    screen.update() # Manual refresh
+    
+    # Border Collision
+    if abs(head.xcor()) > 290 or abs(head.ycor()) > 290:
+        time.sleep(1)
+        head.goto(0, 0)
+        head.direction = "Stop"
+        for s in segments: s.goto(1000, 1000) # Move segments off-screen
+        segments.clear()
 
-        # score
-        score_surf = font.render(f"Score: {score}", True, WHITE)
-        screen.blit(score_surf, (5, 5))
+    # Food Collision (AABB approximation)
+    if head.distance(food) < 20:
+        food.goto(random.randint(-280, 280), random.randint(-280, 280))
+        new_segment = turtle.Turtle()
+        new_segment.shape("square")
+        new_segment.color("grey")
+        new_segment.penup()
+        segments.append(new_segment)
 
-        pg.display.flip()
-        clock.tick(FPS)
+    # Shift segments (Move tail to previous position of piece ahead)
+    for i in range(len(segments) - 1, 0, -1):
+        segments[i].goto(segments[i-1].xcor(), segments[i-1].ycor())
+    if len(segments) > 0:
+        segments[0].goto(head.xcor(), head.ycor())
 
-    # game over
-    print(f"Game over! Final score: {score}")
-    pg.quit()
-    sys.exit()
+    move()
+    time.sleep(0.1) # Frame rate control
 
-
-if __name__ == "__main__":
-    main()
